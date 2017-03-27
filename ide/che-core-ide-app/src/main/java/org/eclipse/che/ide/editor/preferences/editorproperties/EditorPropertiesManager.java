@@ -21,8 +21,10 @@ import com.google.inject.Singleton;
 import org.eclipse.che.commons.annotation.Nullable;
 import org.eclipse.che.ide.api.editor.EditorLocalizationConstants;
 import org.eclipse.che.ide.api.preferences.PreferencesManager;
+import org.eclipse.che.ide.util.loging.Log;
 
 import javax.validation.constraints.NotNull;
+import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -32,6 +34,7 @@ import static org.eclipse.che.ide.editor.preferences.editorproperties.EditorProp
 import static org.eclipse.che.ide.editor.preferences.editorproperties.EditorProperties.AUTO_PAIR_PARENTHESES;
 import static org.eclipse.che.ide.editor.preferences.editorproperties.EditorProperties.AUTO_PAIR_QUOTATIONS;
 import static org.eclipse.che.ide.editor.preferences.editorproperties.EditorProperties.AUTO_PAIR_SQUARE_BRACKETS;
+import static org.eclipse.che.ide.editor.preferences.editorproperties.EditorProperties.ENABLE_AUTO_SAVE;
 import static org.eclipse.che.ide.editor.preferences.editorproperties.EditorProperties.EXPAND_TAB;
 import static org.eclipse.che.ide.editor.preferences.editorproperties.EditorProperties.SHOW_ANNOTATION_RULER;
 import static org.eclipse.che.ide.editor.preferences.editorproperties.EditorProperties.SHOW_CONTENT_ASSIST_AUTOMATICALLY;
@@ -65,6 +68,7 @@ public class EditorPropertiesManager {
                                    PreferencesManager preferencesManager) {
         this.preferencesManager = preferencesManager;
 
+        names.put(ENABLE_AUTO_SAVE.toString(), locale.propertyAutoSave());
         names.put(TAB_SIZE.toString(), locale.propertyTabSize());
         names.put(EXPAND_TAB.toString(), locale.propertyExpandTab());
         names.put(AUTO_PAIR_PARENTHESES.toString(), locale.propertyAutoPairParentheses());
@@ -90,6 +94,9 @@ public class EditorPropertiesManager {
             return defaultProperties;
         }
         defaultProperties = new HashMap<>();
+
+        //AutoSave options
+        defaultProperties.put(ENABLE_AUTO_SAVE.toString(), JSONBoolean.getInstance(true));
 
         // TextViewOptions (tabs)
         defaultProperties.put(TAB_SIZE.toString(), new JSONNumber(4));
@@ -148,16 +155,36 @@ public class EditorPropertiesManager {
         if (properties == null) {
             return getDefaultEditorProperties();
         }
-        return readPropertiesFromJson(properties);
+
+        Map<String, JSONValue> editorProperties = readPropertiesFromJson(properties);
+        defaultProperties.keySet().stream()
+                         .filter(property -> !editorProperties.containsKey(property))
+                         .forEach(property -> editorProperties.put(property, defaultProperties.get(property)));
+        return editorProperties;
     }
 
-    /** Returns saved settings for editor in json format if they exist or default settings otherwise. */
+    /** Returns all saved settings for editor in json format if they exist or default settings otherwise. */
     public JSONObject getJsonEditorProperties() {
         JSONObject jsonProperties = new JSONObject();
 
         Map<String, JSONValue> editorProperties = getEditorProperties();
         for (String property : editorProperties.keySet()) {
             jsonProperties.put(property, editorProperties.get(property));
+        }
+        return jsonProperties;
+    }
+
+    /** Returns saved editor settings for given set properties in json format if they exist or default settings otherwise. */
+    public JSONObject getJsonEditorProperties(EnumSet<EditorProperties> editorPropertiesSet) {
+        JSONObject jsonProperties = new JSONObject();
+
+        Map<String, JSONValue> editorProperties = getEditorProperties();
+        for (String property : editorProperties.keySet()) {
+            Log.error(getClass(), "/// property " + property);
+            if (editorProperties.containsKey(property)) {
+                Log.error(getClass(), "/// property contains " + property);
+                jsonProperties.put(property, editorProperties.get(property));
+            }
         }
         return jsonProperties;
     }
